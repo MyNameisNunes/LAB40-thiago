@@ -1,0 +1,127 @@
+EVIDÊNCIAS – ETAPA DOCKER (Feature 15)
+Data: 27/11/2026 20:41:53 -03
+Branch: feature/thiago15
+
+===== 1. Docker disponível =====
+
+$ docker version --format 'Client: {{.Client.Version}} | Server: {{.Server.Version}} ({{.Server.Os}}/{{.Server.Arch}})'
+Client: 29.1.3 | Server: 29.1.3 (linux/amd64)
+[exit 0]
+
+$ docker info --format 'Servidor ativo: {{.ServerVersion}}'
+Servidor ativo: 29.1.3
+[exit 0]
+
+===== 2. Build da imagem =====
+
+$ docker build --pull -t lab40:feature15 .
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  62.07MB
+Step 1/8 : FROM node:22-alpine
+22-alpine: Pulling from library/node
+Digest: sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+Status: Image is up to date for node:22-alpine
+ ---> 1314fb30ec37
+Step 2/8 : WORKDIR /app
+ ---> Using cache
+ ---> 7f13f90c40a4
+Step 3/8 : COPY package*.json ./
+ ---> Using cache
+ ---> 9815c4f73cc8
+Step 4/8 : RUN npm ci --omit=dev
+ ---> Using cache
+ ---> e38e5696fe2d
+Step 5/8 : COPY src ./src
+ ---> Using cache
+ ---> 47cee9c0369e
+Step 6/8 : COPY public ./public
+ ---> Using cache
+ ---> 21e92de63620
+Step 7/8 : EXPOSE 3000
+ ---> Using cache
+ ---> 2b89fd6503b0
+Step 8/8 : CMD ["npm", "start"]
+ ---> Using cache
+ ---> d7dd08be17b2
+Successfully built d7dd08be17b2
+Successfully tagged lab40:feature15
+[exit 0]
+
+$ docker images lab40
+WARNING: This output is designed for human readability. For machine-readable output, please use --format.
+IMAGE             ID             DISK USAGE   CONTENT SIZE   EXTRA
+lab40:feature15   d7dd08be17b2        243MB         61.9MB        
+[exit 0]
+
+$ docker image inspect lab40:feature15 --format '...'
+Id: sha256:d7dd08be17b225bb063bf7cc01cb14531799ed52274c0c2777fd09a27cb07ffb
+Criada: 2026-11-27T20:14:05.237053862-03:00
+Tamanho: 61910244 bytes
+WorkingDir: /app
+ExposedPorts: map[3000/tcp:map[]]
+Cmd: [npm start]
+[exit 0]
+
+===== 3. Executar container =====
+
+$ docker run -d --name lab40-container -p 3001:3000 lab40:feature15
+2ca5fce64c33a8b7677bbce43a3225a4fcde411924131bbb4c032c71a58f187a
+[exit 0]
+
+$ docker ps --filter name=lab40-container
+CONTAINER ID   IMAGE             STATUS        PORTS                                         NAMES
+2ca5fce64c33   lab40:feature15   Up 1 second   0.0.0.0:3001->3000/tcp, [::]:3001->3000/tcp   lab40-container
+[exit 0]
+
+===== 4. Health check e endpoint da feature 15 =====
+
+$ curl --fail http://localhost:3001/health
+{"status":"ok","application":"LAB40"}
+[exit 0]
+
+$ curl --fail -X POST http://localhost:3001/api/features/15 -H "Content-Type: application/json" -d '{"texto":"  Integração   contínua  "}'
+{"id":15,"name":"Removedor de espaços duplicados","result":{"resultado":"Integração contínua"}}
+[exit 0]
+
+$ curl -X POST http://localhost:3001/api/features/15 -H "Content-Type: application/json" -d '{"texto":123}'   # entrada inválida: esperado HTTP 400
+{"error":"Campo 'texto' deve ser uma string."}  [HTTP 400]
+[exit 0]
+
+===== 5. Logs e encerramento =====
+
+$ docker logs lab40-container
+
+> lab40@1.0.0 start
+> node src/server.js
+
+LAB40 disponível na porta 3000
+[exit 0]
+
+$ docker stop lab40-container
+lab40-container
+[exit 0]
+
+$ docker rm lab40-container
+lab40-container
+[exit 0]
+
+===== 6. Exportação e importação da imagem =====
+
+$ docker save lab40:feature15 -o lab40-feature15.tar
+[exit 0]
+
+$ ls -lh lab40-feature15.tar
+-rw------- 1 milvale milvale 60M nov 27 20:42 lab40-feature15.tar
+[exit 0]
+
+$ sha256sum lab40-feature15.tar
+e68f077abda906e1a91a24cb826568a790aac037970bc633bdcf85d85e3b0bb5  lab40-feature15.tar
+[exit 0]
+
+$ docker load -i lab40-feature15.tar
+Loaded image: lab40:feature15
+[exit 0]
+

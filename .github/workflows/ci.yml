@@ -1,0 +1,56 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Formatação
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Testes
+        run: npm test
+      - name: Smoke test
+        run: npm run test:smoke
+      - name: Auditoria de dependências
+        run: npm audit --audit-level=high
+      - name: Build da imagem Docker
+        run: docker build --pull -t lab40:feature15 .
+      - name: Testar container efêmero
+        run: |
+          docker run -d --name lab40-ci -p 3000:3000 lab40:feature15
+          for i in $(seq 1 20); do
+            curl --fail --silent http://localhost:3000/health && break
+            sleep 1
+          done
+          curl --fail http://localhost:3000/health
+          curl --fail -X POST http://localhost:3000/api/features/15 \
+            -H "Content-Type: application/json" \
+            -d '{"texto":"  Integração   contínua  "}'
+      - name: Logs e remoção do container
+        if: always()
+        run: |
+          docker logs lab40-ci || true
+          docker rm -f lab40-ci || true
+      - name: Exportar imagem
+        run: docker save lab40:feature15 -o lab40-feature15.tar
+      - name: Publicar imagem como artefato
+        uses: actions/upload-artifact@v7
+        with:
+          name: lab40-image-feature15
+          path: lab40-feature15.tar
+          retention-days: 7
+          
